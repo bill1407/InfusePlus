@@ -703,14 +703,14 @@
         });
         
         // Sort subfolders alphabetically (A-Z)
-        subfolders.sort((a, b) => a.name.localeCompare(b.name, undefined, { numeric: true, sensitivity: 'base' }));
+        subfolders.sort((a, b) => (a.name || '').localeCompare(b.name || '', undefined, { numeric: true, sensitivity: 'base' }));
       }
       
       // Apply Sort on files
       if (state.sortBy === 'name-asc') {
-        files.sort((a, b) => a.name.localeCompare(b.name, undefined, { numeric: true, sensitivity: 'base' }));
+        files.sort((a, b) => (a.name || '').localeCompare(b.name || '', undefined, { numeric: true, sensitivity: 'base' }));
       } else if (state.sortBy === 'name-desc') {
-        files.sort((a, b) => b.name.localeCompare(a.name, undefined, { numeric: true, sensitivity: 'base' }));
+        files.sort((a, b) => (b.name || '').localeCompare(a.name || '', undefined, { numeric: true, sensitivity: 'base' }));
       } else if (state.sortBy === 'size-desc') {
         files.sort((a, b) => (b.size || 0) - (a.size || 0));
       } else if (state.sortBy === 'size-asc') {
@@ -743,7 +743,7 @@
           if (folderNavControls) folderNavControls.classList.add('hidden');
         } else {
           // Construct breadcrumb text or path
-          const pathParts = ['Start Folder', ...state.navigationHistory.slice(1).map(f => f.name), state.currentFolder.name];
+          const pathParts = ['Start Folder', ...state.navigationHistory.slice(1).map(f => f.name || 'Folder'), state.currentFolder.name || 'Folder'];
           elements.folderNameDisplay.innerText = pathParts.join(' / ');
           if (folderNavControls) folderNavControls.classList.remove('hidden');
         }
@@ -804,7 +804,7 @@
           
           const itemsCount = file.children ? file.children.filter(c => c.directory || (c.name && getMediaType(c.name))).length : 0;
           const displayCount = `${itemsCount} item${itemsCount !== 1 ? 's' : ''}`;
-          const dispFolderName = highlightQuery(file.name, state.searchQuery);
+          const dispFolderName = highlightQuery(file.name || '', state.searchQuery);
           
           row.innerHTML = `
             <td class="py-4 px-6 text-center font-mono text-xs text-indigo-400">
@@ -817,8 +817,8 @@
                 </div>
                 <div class="min-w-0">
                   <div class="text-sm truncate max-w-sm sm:max-w-md md:max-w-lg lg:max-w-xl pr-2 cursor-pointer hover:underline font-bold text-indigo-200" 
-                       title="${file.name.replace(/"/g, '&quot;')}"
-                       data-folder-name="${encodeURIComponent(file.name)}"
+                       title="${(file.name || '').replace(/"/g, '&quot;')}"
+                       data-folder-name="${encodeURIComponent(file.name || '')}"
                        onclick="enterFolder(this.dataset.folderName)">
                     ${dispFolderName}
                   </div>
@@ -828,7 +828,7 @@
             </td>
             <td class="py-4 px-4 text-center font-mono text-xs text-slate-400 hidden md:table-cell">${displayCount}</td>
             <td class="py-4 px-6 text-right">
-              <button data-folder-name="${encodeURIComponent(file.name)}"
+              <button data-folder-name="${encodeURIComponent(file.name || '')}"
                       onclick="enterFolder(this.dataset.folderName)"
                       class="px-3.5 py-2 rounded-xl text-xs font-semibold bg-indigo-600/10 hover:bg-indigo-600/20 text-indigo-300 hover:text-white border border-indigo-500/20 hover:border-indigo-500/40 transition-all flex items-center gap-1.5 ml-auto">
                 <i data-lucide="folder-open" class="w-3.5 h-3.5"></i>
@@ -838,16 +838,16 @@
           `;
         } else {
           // Render File Row
-          const isCached = state.blobCache[file.name] !== undefined;
-          const downloadPercent = state.activeDownloads[file.name];
+          const isCached = file.name && state.blobCache[file.name] !== undefined;
+          const downloadPercent = file.name ? state.activeDownloads[file.name] : undefined;
           const isDownloading = downloadPercent !== undefined;
           
           row.className = `hover:bg-slate-900/45 transition-colors border-b border-slate-900/30 ${isCached ? 'bg-violet-950/5' : ''}`;
           
           // Name highlight
-          const dispName = highlightQuery(file.name, state.searchQuery);
+          const dispName = highlightQuery(file.name || '', state.searchQuery);
           const formatSize = formatBytes(file.size);
-          const mediaType = getMediaType(file.name);
+          const mediaType = getMediaType(file.name || '');
           const mediaIcon = mediaType === 'video' ? 'video' : 'music';
           const iconColorClass = mediaType === 'video' ? 'bg-indigo-500/10 border border-indigo-500/20 text-indigo-400' : 'bg-violet-500/10 border border-violet-500/20 text-violet-400';
           
@@ -876,7 +876,7 @@
             buttonsHtml = `
               <div class="flex items-center justify-end gap-2.5">
                 <!-- Preview/Play -->
-                <button data-file-name="${encodeURIComponent(file.name)}"
+                <button data-file-name="${encodeURIComponent(file.name || '')}"
                         onclick="handlePreview(this.dataset.fileName)" 
                         class="px-3.5 py-2 rounded-xl text-xs font-semibold flex items-center gap-1.5 transition-all ${previewBtnClass}">
                   <i data-lucide="${previewIcon}" class="w-3.5 h-3.5"></i>
@@ -884,7 +884,7 @@
                 </button>
                 
                 <!-- Download -->
-                <button data-file-name="${encodeURIComponent(file.name)}"
+                <button data-file-name="${encodeURIComponent(file.name || '')}"
                         onclick="handleDownload(this.dataset.fileName)" 
                         class="px-3.5 py-2 rounded-xl text-xs font-semibold bg-violet-600/10 hover:bg-violet-600/20 text-violet-300 hover:text-white border border-violet-500/20 hover:border-violet-500/40 transition-all flex items-center gap-1.5">
                   <i data-lucide="download" class="w-3.5 h-3.5"></i>
@@ -902,7 +902,7 @@
                   <i data-lucide="${mediaIcon}" class="w-4 h-4"></i>
                 </div>
                 <div class="min-w-0">
-                  <div class="text-sm truncate max-w-sm sm:max-w-md md:max-w-lg lg:max-w-xl pr-2" title="${file.name.replace(/"/g, '&quot;')}">${dispName}</div>
+                  <div class="text-sm truncate max-w-sm sm:max-w-md md:max-w-lg lg:max-w-xl pr-2" title="${(file.name || '').replace(/"/g, '&quot;')}">${dispName}</div>
                   <div class="text-[10px] text-slate-500 font-mono mt-0.5 md:hidden">Size: ${formatSize}</div>
                 </div>
               </div>
@@ -1057,7 +1057,7 @@
     // Download Trigger
     async function handleDownload(encodedName) {
       const fileName = decodeURIComponent(encodedName);
-      const file = state.allFiles.find(f => f.name === fileName);
+      const file = state.allFiles.find(f => f && f.name === fileName);
       if (!file) return;
       
       if (state.activeDownloads[fileName] !== undefined) {
@@ -1093,7 +1093,7 @@
     // Preview Player Trigger
     async function handlePreview(encodedName) {
       const fileName = decodeURIComponent(encodedName);
-      const file = state.allFiles.find(f => f.name === fileName);
+      const file = state.allFiles.find(f => f && f.name === fileName);
       if (!file) return;
       
       if (state.activeDownloads[fileName] !== undefined) {
