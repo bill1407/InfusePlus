@@ -1,0 +1,803 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>InfusePlus - Universal Media Player</title>
+    <meta name="description" content="Play video and audio files: mp4, mov, avi, mkv, webm, m4v, flv, wmv, mp3, wav and more">
+    <style>
+        :root {
+            --bg: #0a0a0f;
+            --bg-card: #16161e;
+            --bg-elevated: #1e1e2a;
+            --border: #2a2a3a;
+            --text: #f5f5f7;
+            --text-muted: #9a9ab0;
+            --accent: #ff4a2b;
+            --accent-2: #ff8a2b;
+            --success: #30d158;
+            --warning: #ffd60a;
+            --radius: 16px;
+        }
+        * { box-sizing: border-box; margin: 0; padding: 0; }
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'SF Pro Display', 'Segoe UI', Roboto, sans-serif;
+            background: var(--bg);
+            color: var(--text);
+            min-height: 100vh;
+            display: flex;
+            flex-direction: column;
+            overflow-x: hidden;
+        }
+        /* Header */
+        header {
+            padding: 20px 24px;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            border-bottom: 1px solid var(--border);
+            background: rgba(10,10,15,0.8);
+            backdrop-filter: blur(20px);
+            position: sticky;
+            top: 0;
+            z-index: 10;
+        }
+        .logo {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            font-weight: 700;
+            font-size: 20px;
+            letter-spacing: -0.02em;
+        }
+        .logo-icon {
+            width: 36px; height: 36px;
+            background: linear-gradient(135deg, var(--accent), var(--accent-2));
+            border-radius: 10px;
+            display: grid;
+            place-items: center;
+            font-size: 18px;
+        }
+        .badge {
+            font-size: 11px;
+            font-weight: 600;
+            padding: 4px 8px;
+            border-radius: 100px;
+            background: var(--bg-elevated);
+            color: var(--text-muted);
+            border: 1px solid var(--border);
+        }
+
+        main {
+            flex: 1;
+            display: grid;
+            grid-template-columns: 1fr 340px;
+            gap: 0;
+            min-height: 0;
+        }
+        @media (max-width: 980px) {
+            main { grid-template-columns: 1fr; }
+        }
+
+        /* Player Column */
+        .player-section {
+            padding: 24px;
+            display: flex;
+            flex-direction: column;
+            gap: 20px;
+            min-width: 0;
+        }
+
+        .video-wrapper {
+            position: relative;
+            width: 100%;
+            aspect-ratio: 16/9;
+            background: #000;
+            border-radius: var(--radius);
+            overflow: hidden;
+            border: 1px solid var(--border);
+            box-shadow: 0 20px 60px rgba(0,0,0,0.5);
+            display: grid;
+            place-items: center;
+        }
+        .video-wrapper.dragover {
+            border-color: var(--accent);
+            box-shadow: 0 0 0 2px var(--accent), 0 20px 60px rgba(0,0,0,0.5);
+        }
+        video {
+            width: 100%;
+            height: 100%;
+            object-fit: contain;
+            background: #000;
+            display: block;
+        }
+
+        /* Placeholder / Drop Zone */
+        .drop-zone {
+            position: absolute;
+            inset: 0;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            gap: 16px;
+            padding: 32px;
+            text-align: center;
+            background: radial-gradient(600px circle at 50% 0%, rgba(255,74,43,0.15), transparent 70%), var(--bg-card);
+            transition: all .2s ease;
+        }
+        .drop-zone.hidden { opacity: 0; pointer-events: none; }
+        .drop-icon {
+            width: 72px; height: 72px;
+            border-radius: 20px;
+            background: var(--bg-elevated);
+            border: 1px dashed var(--border);
+            display: grid;
+            place-items: center;
+            font-size: 28px;
+        }
+        .video-wrapper.dragover .drop-icon {
+            border-color: var(--accent);
+            background: rgba(255,74,43,0.1);
+            transform: scale(1.05);
+        }
+        .drop-zone h2 { font-size: 22px; letter-spacing: -0.02em; }
+        .drop-zone p { color: var(--text-muted); max-width: 360px; line-height: 1.5; font-size: 14px; }
+        .format-pills {
+            display: flex; flex-wrap: wrap; gap: 8px; justify-content: center; margin-top: 8px;
+        }
+        .pill {
+            font-size: 11px; font-weight: 600; letter-spacing: 0.05em;
+            padding: 5px 10px; border-radius: 100px;
+            background: var(--bg-elevated); border: 1px solid var(--border);
+            color: var(--text-muted); text-transform: uppercase;
+        }
+        .pill.support { background: rgba(48,209,88,0.12); border-color: rgba(48,209,88,0.3); color: var(--success); }
+        .pill.partial { background: rgba(255,214,10,0.12); border-color: rgba(255,214,10,0.3); color: var(--warning); }
+
+        /* Controls bar below video */
+        .player-controls {
+            display: flex; flex-wrap: wrap;
+            gap: 12px;
+            align-items: center;
+            justify-content: space-between;
+            background: var(--bg-card);
+            border: 1px solid var(--border);
+            border-radius: 12px;
+            padding: 12px 16px;
+        }
+        .controls-left, .controls-right { display: flex; gap: 10px; align-items: center; flex-wrap: wrap; }
+        .btn {
+            appearance: none;
+            border: 1px solid var(--border);
+            background: var(--bg-elevated);
+            color: var(--text);
+            padding: 8px 14px;
+            border-radius: 10px;
+            font-size: 13px;
+            font-weight: 600;
+            cursor: pointer;
+            display: inline-flex;
+            align-items: center;
+            gap: 6px;
+            transition: all .15s ease;
+        }
+        .btn:hover { background: #2a2a3a; border-color: #3a3a4a; transform: translateY(-1px); }
+        .btn.primary {
+            background: var(--text); color: #000; border-color: var(--text);
+        }
+        .btn.primary:hover { background: #fff; }
+        .btn.accent {
+            background: linear-gradient(135deg, var(--accent), var(--accent-2));
+            border-color: transparent; color: white;
+        }
+        .btn.accent:hover { filter: brightness(1.1); }
+        .btn:disabled { opacity: .5; pointer-events: none; }
+
+        .file-meta {
+            display: flex; gap: 10px; align-items: center;
+            font-size: 13px; color: var(--text-muted);
+            min-width: 0;
+        }
+        .file-meta strong { color: var(--text); font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 28ch; }
+
+        .status-bar {
+            font-size: 12px; padding: 10px 14px;
+            border-radius: 10px; border: 1px solid var(--border);
+            background: var(--bg-card);
+            display: none;
+        }
+        .status-bar.show { display: block; }
+        .status-bar.error { border-color: rgba(255,69,58,0.4); background: rgba(255,69,58,0.1); color: #ff9a93; }
+        .status-bar.warn { border-color: rgba(255,214,10,0.4); background: rgba(255,214,10,0.1); color: #ffe780; }
+        .status-bar.info { border-color: rgba(10,132,255,0.4); background: rgba(10,132,255,0.1); color: #8ac8ff; }
+
+        /* Sidebar */
+        .sidebar {
+            border-left: 1px solid var(--border);
+            background: var(--bg-card);
+            display: flex;
+            flex-direction: column;
+            min-height: 0;
+            overflow: hidden;
+        }
+        @media (max-width: 980px) {
+            .sidebar { border-left: none; border-top: 1px solid var(--border); }
+        }
+        .sidebar-header {
+            padding: 20px 20px 12px;
+            display: flex; align-items: center; justify-content: space-between;
+        }
+        .sidebar-header h3 { font-size: 14px; font-weight: 700; letter-spacing: -0.01em; text-transform: uppercase; color: var(--text-muted); }
+        .sidebar-content { padding: 0 12px 12px; overflow-y: auto; flex: 1; display: flex; flex-direction: column; gap: 16px; }
+        
+        .panel {
+            background: var(--bg-elevated);
+            border: 1px solid var(--border);
+            border-radius: 12px;
+            padding: 14px;
+        }
+        .panel label { font-size: 12px; font-weight: 600; color: var(--text-muted); display: block; margin-bottom: 8px; text-transform: uppercase; letter-spacing: 0.05em; }
+        .input-row { display: flex; gap: 8px; }
+        .input {
+            flex: 1;
+            background: var(--bg-card);
+            border: 1px solid var(--border);
+            color: var(--text);
+            padding: 10px 12px;
+            border-radius: 10px;
+            font-size: 13px;
+            outline: none;
+            min-width: 0;
+        }
+        .input:focus { border-color: var(--accent); box-shadow: 0 0 0 3px rgba(255,74,43,0.15); }
+        .input::placeholder { color: var(--text-muted); }
+
+        .playlist { display: flex; flex-direction: column; gap: 6px; }
+        .playlist-item {
+            display: flex; align-items: center; gap: 10px;
+            padding: 10px 10px;
+            border-radius: 10px;
+            background: var(--bg-card);
+            border: 1px solid transparent;
+            cursor: pointer;
+            transition: all .15s ease;
+            min-width: 0;
+        }
+        .playlist-item:hover { background: var(--bg-elevated); border-color: var(--border); }
+        .playlist-item.active { background: rgba(255,74,43,0.12); border-color: rgba(255,74,43,0.4); }
+        .playlist-item .thumb {
+            width: 36px; height: 36px; border-radius: 8px;
+            background: var(--bg-elevated); display: grid; place-items: center;
+            font-size: 14px; flex-shrink: 0;
+        }
+        .playlist-item .info { min-width: 0; flex: 1; }
+        .playlist-item .name { font-size: 13px; font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+        .playlist-item .sub { font-size: 11px; color: var(--text-muted); }
+        .empty { padding: 28px 16px; text-align: center; color: var(--text-muted); font-size: 13px; border: 1px dashed var(--border); border-radius: 12px; background: var(--bg-elevated); }
+
+        .compat-table { width: 100%; border-collapse: collapse; font-size: 12px; }
+        .compat-table th { text-align: left; color: var(--text-muted); font-weight: 600; padding: 6px 0; border-bottom: 1px solid var(--border); text-transform: uppercase; font-size: 10px; letter-spacing: 0.05em; }
+        .compat-table td { padding: 8px 0; border-bottom: 1px solid rgba(42,42,58,0.6); }
+        .dot { width: 8px; height: 8px; border-radius: 50%; display: inline-block; margin-right: 6px; }
+        .dot.green { background: var(--success); }
+        .dot.yellow { background: var(--warning); }
+        .dot.red { background: #ff453a; }
+
+        footer {
+            padding: 14px 24px;
+            border-top: 1px solid var(--border);
+            display: flex; justify-content: space-between; align-items: center;
+            font-size: 11px; color: var(--text-muted);
+        }
+        footer a { color: var(--text-muted); text-decoration: none; }
+        footer a:hover { color: var(--text); text-decoration: underline; }
+
+        /* file input hidden */
+        #fileInput { display: none; }
+    </style>
+</head>
+<body>
+    <header>
+        <div class="logo">
+            <div class="logo-icon">▶</div>
+            InfusePlus Web
+            <span class="badge">mp4 • mov • avi • mkv • webm</span>
+        </div>
+        <div style="display:flex; gap:8px;">
+            <button class="btn" id="pickUrlBtn">🔗 Open URL</button>
+            <button class="btn primary" id="pickFileBtn">📁 Open Files</button>
+        </div>
+    </header>
+
+    <main>
+        <section class="player-section">
+            <div class="video-wrapper" id="dropArea">
+                <!-- The core player: supports both audio & video -->
+                <video id="videoPlayer" controls playsinline preload="metadata" crossorigin="anonymous"></video>
+
+                <!-- Drop overlay shown when no source -->
+                <div class="drop-zone" id="dropZone">
+                    <div class="drop-icon">🎬</div>
+                    <h2>Drop video files here</h2>
+                    <p>Supports <b>mp4, mov, m4v, webm, mkv, avi, flv, wmv, 3gp</b> and audio <b>mp3, wav, aac, ogg, flac</b>. <br>Or click to browse.</p>
+                    <div class="format-pills">
+                        <span class="pill support">mp4 ✓</span>
+                        <span class="pill support">mov ✓</span>
+                        <span class="pill support">webm ✓</span>
+                        <span class="pill support">m4v ✓</span>
+                        <span class="pill partial">mkv ◐</span>
+                        <span class="pill partial">avi ◐</span>
+                        <span class="pill partial">wmv ◐</span>
+                    </div>
+                </div>
+            </div>
+
+            <div class="player-controls">
+                <div class="controls-left">
+                    <button class="btn" id="prevBtn" disabled>⏮ Prev</button>
+                    <button class="btn" id="nextBtn" disabled>⏭ Next</button>
+                    <button class="btn" id="pipBtn" disabled>🖼 PiP</button>
+                    <button class="btn" id="fsBtn">⛶ Fullscreen</button>
+                </div>
+                <div class="controls-right">
+                    <div class="file-meta" id="fileMeta">
+                        <span>No file loaded</span>
+                    </div>
+                    <label class="btn" style="cursor:pointer;">
+                        <input type="checkbox" id="autoplayNext" checked style="accent-color: var(--accent);"> Autoplay
+                    </label>
+                </div>
+            </div>
+
+            <div class="status-bar" id="statusBar"></div>
+
+            <div style="display:flex; gap:12px; flex-wrap:wrap;">
+                <div style="flex:1; min-width: 280px;" class="panel">
+                    <label>Playback tips</label>
+                    <div style="font-size:13px; line-height:1.6; color: var(--text-muted);">
+                        • <b style="color:var(--text)">mp4 / mov / m4v</b> with H.264 + AAC works everywhere<br>
+                        • <b style="color:var(--text)">webm (VP9/AV1)</b> works in Chrome/Firefox<br>
+                        • <b style="color:var(--text)">mkv / avi / wmv</b> may not play natively in browsers – if it fails, convert to mp4 (H.264) or open in VLC/Infuse.<br>
+                        • Use <b style="color:var(--text)">Picture-in-Picture</b> and <b style="color:var(--text)">Fullscreen</b> for better experience.
+                    </div>
+                </div>
+                <div style="flex:1; min-width: 240px;" class="panel">
+                    <label>Current file info</label>
+                    <div id="fileInfo" style="font-size:12px; line-height:1.7; color:var(--text-muted);">
+                        No file selected yet.<br>
+                        Select a local file or paste a direct video URL.
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <aside class="sidebar">
+            <div class="sidebar-header">
+                <h3>Playlist</h3>
+                <button class="btn" id="clearBtn" style="padding:4px 10px; font-size:12px;">Clear</button>
+            </div>
+            <div class="sidebar-content">
+                <div class="panel">
+                    <label>Open from URL (mp4, mov, webm...)</label>
+                    <div class="input-row">
+                        <input class="input" id="urlInput" type="url" placeholder="https://example.com/video.mp4">
+                        <button class="btn accent" id="loadUrlBtn">Load</button>
+                    </div>
+                </div>
+
+                <div id="playlist" class="playlist"></div>
+                <div id="emptyPlaylist" class="empty">No files yet.<br>Drag & drop or use <b>Open Files</b>.</div>
+
+                <div class="panel">
+                    <label>Compatibility</label>
+                    <table class="compat-table">
+                        <thead><tr><th>Format</th><th>Extension</th><th>Browser</th></tr></thead>
+                        <tbody>
+                            <tr><td><span class="dot green"></span>MP4 H.264</td><td>.mp4, .m4v</td><td>All</td></tr>
+                            <tr><td><span class="dot green"></span>QuickTime</td><td>.mov</td><td>All if H.264</td></tr>
+                            <tr><td><span class="dot green"></span>WebM</td><td>.webm</td><td>Chrome, Firefox, Edge</td></tr>
+                            <tr><td><span class="dot yellow"></span>Matroska</td><td>.mkv</td><td>Partial (Chrome)</td></tr>
+                            <tr><td><span class="dot yellow"></span>AVI</td><td>.avi</td><td>Partial / No</td></tr>
+                            <tr><td><span class="dot yellow"></span>WMV</td><td>.wmv, .flv</td><td>Partial / No</td></tr>
+                            <tr><td><span class="dot red"></span>HEVC / ProRes</td><td>.mov, .mkv</td><td>Safari only</td></tr>
+                        </tbody>
+                    </table>
+                    <p style="margin-top:10px; font-size:11px; color: var(--text-muted); line-height:1.5;">
+                        Browsers only decode formats they support. <b>avi, mkv, wmv</b> often need transcoding to mp4. Infuse iOS app can play them natively, this web player tries its best with <code>&lt;video&gt;</code>.
+                    </p>
+                </div>
+
+                <div class="panel">
+                    <label>Accepted types</label>
+                    <div class="format-pills" style="justify-content:flex-start;">
+                        <span class="pill">video/mp4</span>
+                        <span class="pill">video/quicktime</span>
+                        <span class="pill">video/webm</span>
+                        <span class="pill">video/x-matroska</span>
+                        <span class="pill">video/x-msvideo</span>
+                        <span class="pill">video/x-ms-wmv</span>
+                        <span class="pill">audio/*</span>
+                    </div>
+                </div>
+            </div>
+        </aside>
+    </main>
+
+    <footer>
+        <span>InfusePlus Web Player • Works offline • No upload, files stay in your browser</span>
+        <span><a href="https://github.com/bill1407/InfusePlus" target="_blank">GitHub</a></span>
+    </footer>
+
+    <!-- Hidden file input: extended to accept video formats -->
+    <input id="fileInput" type="file" accept="video/*,audio/*,.mp4,.m4v,.mov,.avi,.mkv,.webm,.flv,.wmv,.3gp,.3gpp,.mpg,.mpeg,.ts,.mts,.mp3,.wav,.aac,.ogg,.flac,.wma" multiple>
+
+    <script>
+        // DOM
+        const video = document.getElementById('videoPlayer');
+        const fileInput = document.getElementById('fileInput');
+        const pickFileBtn = document.getElementById('pickFileBtn');
+        const pickUrlBtn = document.getElementById('pickUrlBtn');
+        const dropArea = document.getElementById('dropArea');
+        const dropZone = document.getElementById('dropZone');
+        const statusBar = document.getElementById('statusBar');
+        const fileMeta = document.getElementById('fileMeta');
+        const fileInfo = document.getElementById('fileInfo');
+        const playlistEl = document.getElementById('playlist');
+        const emptyEl = document.getElementById('emptyPlaylist');
+        const urlInput = document.getElementById('urlInput');
+        const loadUrlBtn = document.getElementById('loadUrlBtn');
+        const prevBtn = document.getElementById('prevBtn');
+        const nextBtn = document.getElementById('nextBtn');
+        const pipBtn = document.getElementById('pipBtn');
+        const fsBtn = document.getElementById('fsBtn');
+        const clearBtn = document.getElementById('clearBtn');
+        const autoplayNext = document.getElementById('autoplayNext');
+
+        let playlist = []; // {name, url, file, size, type, objectUrl}
+        let currentIndex = -1;
+
+        const mimeMap = {
+            'mp4': 'video/mp4',
+            'm4v': 'video/mp4',
+            'mov': 'video/quicktime',
+            'webm': 'video/webm',
+            'mkv': 'video/x-matroska',
+            'avi': 'video/x-msvideo',
+            'flv': 'video/x-flv',
+            'wmv': 'video/x-ms-wmv',
+            '3gp': 'video/3gpp',
+            '3gpp': 'video/3gpp',
+            'mpg': 'video/mpeg',
+            'mpeg': 'video/mpeg',
+            'ts': 'video/mp2t',
+            'mts': 'video/mp2t',
+            'mp3': 'audio/mpeg',
+            'wav': 'audio/wav',
+            'aac': 'audio/aac',
+            'ogg': 'audio/ogg',
+            'flac': 'audio/flac',
+            'wma': 'audio/x-ms-wma'
+        };
+
+        function getExt(name) {
+            const parts = name.split('.');
+            return parts.length > 1 ? parts.pop().toLowerCase() : '';
+        }
+        function guessMime(fileName) {
+            return mimeMap[getExt(fileName)] || '';
+        }
+        function formatBytes(bytes) {
+            if (!bytes && bytes !== 0) return '—';
+            if (bytes === 0) return '0 B';
+            const k = 1024;
+            const sizes = ['B','KB','MB','GB'];
+            const i = Math.floor(Math.log(bytes)/Math.log(k));
+            return parseFloat((bytes/Math.pow(k,i)).toFixed(2)) + ' ' + sizes[i];
+        }
+        function showStatus(msg, type='info') {
+            statusBar.textContent = msg;
+            statusBar.className = 'status-bar show ' + type;
+        }
+        function hideStatus() {
+            statusBar.className = 'status-bar';
+        }
+        function iconFor(name) {
+            const ext = getExt(name);
+            if (['mp4','m4v','mov'].includes(ext)) return '🎞️';
+            if (['webm','mkv'].includes(ext)) return '🎥';
+            if (['avi','wmv','flv','mpg','mpeg'].includes(ext)) return '📼';
+            if (['mp3','wav','aac','flac'].includes(ext)) return '🎵';
+            return '🎬';
+        }
+
+        function updatePlaylistUI() {
+            playlistEl.innerHTML = '';
+            if (playlist.length === 0) {
+                emptyEl.style.display = 'block';
+                prevBtn.disabled = true;
+                nextBtn.disabled = true;
+            } else {
+                emptyEl.style.display = 'none';
+                prevBtn.disabled = currentIndex <= 0;
+                nextBtn.disabled = currentIndex >= playlist.length - 1;
+            }
+            playlist.forEach((item, idx) => {
+                const div = document.createElement('div');
+                div.className = 'playlist-item' + (idx === currentIndex ? ' active' : '');
+                div.innerHTML = `
+                    <div class="thumb">${iconFor(item.name)}</div>
+                    <div class="info">
+                        <div class="name" title="${item.name}">${item.name}</div>
+                        <div class="sub">${getExt(item.name).toUpperCase()} • ${item.sizeStr}</div>
+                    </div>
+                `;
+                div.onclick = () => playIndex(idx);
+                playlistEl.appendChild(div);
+            });
+        }
+
+        function setMeta(item) {
+            if (!item) {
+                fileMeta.innerHTML = '<span>No file loaded</span>';
+                fileInfo.innerHTML = 'No file selected yet.<br>Select a local file or paste a direct video URL.';
+                return;
+            }
+            fileMeta.innerHTML = `<strong title="${item.name}">${item.name}</strong> <span>• ${item.sizeStr}</span>`;
+            fileInfo.innerHTML = `
+                <b style="color:var(--text)">${item.name}</b><br>
+                Type: ${item.type || guessMime(item.name) || 'unknown'}<br>
+                Size: ${item.sizeStr}<br>
+                Extension: .${getExt(item.name)}<br>
+                Source: ${item.file ? 'Local file' : 'Remote URL'}<br>
+                ${canPlayCheck(item)}
+            `;
+        }
+
+        function canPlayCheck(item) {
+            const mime = item.type || guessMime(item.name);
+            if (!mime) return '<span style="color: var(--text-muted)">Cannot detect MIME.</span>';
+            let can = '';
+            try { can = video.canPlayType(mime); } catch(e){ can = ''; }
+            if (can === 'probably' || can === 'maybe') {
+                return `<span style="color:var(--success)">✓ Browser says it can play ${mime}</span>`;
+            } else if (['video/x-msvideo','video/x-ms-wmv','video/x-matroska'].includes(mime)) {
+                return `<span style="color:var(--warning)">⚠ ${mime} may not be natively supported. If it fails, convert to mp4 (H.264/AAC).</span>`;
+            } else {
+                return `<span style="color:var(--text-muted)">Browser support unknown for ${mime}. Trying anyway...</span>`;
+            }
+        }
+
+        function playIndex(idx) {
+            if (idx < 0 || idx >= playlist.length) return;
+            const item = playlist[idx];
+            currentIndex = idx;
+
+            // revoke previous object URL if switching away? Keep for playlist reuse, but revoke on clear
+            if (item.objectUrl) {
+                video.src = item.objectUrl;
+            } else {
+                video.src = item.url;
+            }
+            video.load();
+            video.play().catch(err => {
+                console.warn('Autoplay blocked or failed', err);
+                showStatus('Autoplay was blocked. Click play.', 'warn');
+            });
+
+            setMeta(item);
+            updatePlaylistUI();
+            dropZone.classList.add('hidden');
+            pipBtn.disabled = false;
+            hideStatus();
+        }
+
+        function addFiles(fileList) {
+            const newItems = [];
+            for (const file of fileList) {
+                const url = URL.createObjectURL(file);
+                const ext = getExt(file.name);
+                newItems.push({
+                    name: file.name,
+                    url: url,
+                    objectUrl: url,
+                    file: file,
+                    size: file.size,
+                    sizeStr: formatBytes(file.size),
+                    type: file.type || guessMime(file.name)
+                });
+            }
+            playlist.push(...newItems);
+            updatePlaylistUI();
+            if (currentIndex === -1 && newItems.length > 0) {
+                playIndex(playlist.length - newItems.length);
+            }
+            if (newItems.length) {
+                showStatus(`Added ${newItems.length} file(s). ${newItems.map(f=>f.name).slice(0,3).join(', ')}${newItems.length>3?'...':''}`, 'info');
+                setTimeout(hideStatus, 4000);
+            }
+        }
+
+        function addUrl(rawUrl) {
+            try {
+                const url = new URL(rawUrl);
+                const pathname = url.pathname;
+                const name = decodeURIComponent(pathname.split('/').pop() || 'remote-video') || 'remote-video';
+                const finalName = name.includes('.') ? name : 'video.mp4';
+                const item = {
+                    name: finalName,
+                    url: rawUrl,
+                    objectUrl: null,
+                    file: null,
+                    size: 0,
+                    sizeStr: 'Remote',
+                    type: guessMime(finalName) || 'video/mp4'
+                };
+                playlist.push(item);
+                updatePlaylistUI();
+                if (currentIndex === -1) playIndex(playlist.length -1);
+                showStatus(`Loaded URL: ${finalName}`, 'info');
+                setTimeout(hideStatus, 3000);
+            } catch(e) {
+                showStatus('Invalid URL. Please enter a direct link to video file (e.g. https://.../video.mp4)', 'error');
+            }
+        }
+
+        function clearPlaylist() {
+            // revoke object URLs
+            playlist.forEach(p => { if (p.objectUrl) URL.revokeObjectURL(p.objectUrl); });
+            playlist = [];
+            currentIndex = -1;
+            video.pause();
+            video.removeAttribute('src');
+            video.load();
+            setMeta(null);
+            updatePlaylistUI();
+            dropZone.classList.remove('hidden');
+            fileMeta.innerHTML = '<span>No file loaded</span>';
+            pipBtn.disabled = true;
+            hideStatus();
+        }
+
+        // Events
+        pickFileBtn.addEventListener('click', () => fileInput.click());
+        dropZone.addEventListener('click', () => fileInput.click());
+
+        fileInput.addEventListener('change', (e) => {
+            if (e.target.files && e.target.files.length) {
+                addFiles(e.target.files);
+            }
+            // reset value to allow same file re-select
+            e.target.value = '';
+        });
+
+        loadUrlBtn.addEventListener('click', () => {
+            const v = urlInput.value.trim();
+            if (v) addUrl(v);
+        });
+        urlInput.addEventListener('keydown', (e) => {
+            if (e.key === 'Enter') {
+                const v = urlInput.value.trim();
+                if (v) addUrl(v);
+            }
+        });
+        pickUrlBtn.addEventListener('click', () => {
+            urlInput.focus();
+        });
+
+        prevBtn.addEventListener('click', () => {
+            if (currentIndex > 0) playIndex(currentIndex - 1);
+        });
+        nextBtn.addEventListener('click', () => {
+            if (currentIndex < playlist.length -1) playIndex(currentIndex + 1);
+        });
+
+        video.addEventListener('ended', () => {
+            if (autoplayNext.checked && currentIndex < playlist.length -1) {
+                playIndex(currentIndex + 1);
+            }
+        });
+
+        video.addEventListener('error', () => {
+            const err = video.error;
+            let msg = 'Failed to play this file.';
+            if (err) {
+                msg += ` Code ${err.code}. `;
+                if (err.code === 4) msg += 'Format not supported by your browser.';
+            }
+            const current = playlist[currentIndex];
+            if (current) {
+                const ext = getExt(current.name);
+                if (['avi','mkv','wmv','flv'].includes(ext)) {
+                    msg += ` .${ext} is often unsupported natively. Convert to MP4 (H.264 + AAC) using HandBrake, ffmpeg, or VLC. On iOS, Infuse can play it natively.`;
+                    showStatus(msg, 'error');
+                } else {
+                    showStatus(msg, 'error');
+                }
+            } else {
+                showStatus(msg, 'error');
+            }
+        });
+
+        video.addEventListener('loadedmetadata', () => {
+            hideStatus();
+        });
+
+        fsBtn.addEventListener('click', async () => {
+            try {
+                if (document.fullscreenElement) {
+                    await document.exitFullscreen();
+                } else {
+                    await dropArea.requestFullscreen();
+                }
+            } catch(e) {
+                // fallback video fullscreen
+                if (video.webkitEnterFullscreen) video.webkitEnterFullscreen();
+                else video.requestFullscreen().catch(()=>{});
+            }
+        });
+
+        pipBtn.addEventListener('click', async () => {
+            try {
+                if (document.pictureInPictureElement) {
+                    await document.exitPictureInPicture();
+                } else if (video.requestPictureInPicture) {
+                    await video.requestPictureInPicture();
+                }
+            } catch(e) {
+                showStatus('Picture-in-Picture failed: ' + e.message, 'warn');
+            }
+        });
+
+        clearBtn.addEventListener('click', clearPlaylist);
+
+        // Drag & Drop
+        ['dragenter','dragover'].forEach(ev => {
+            dropArea.addEventListener(ev, (e) => {
+                e.preventDefault();
+                e.stopPropagation();
+                dropArea.classList.add('dragover');
+            });
+        });
+        ['dragleave','drop'].forEach(ev => {
+            dropArea.addEventListener(ev, (e) => {
+                e.preventDefault();
+                e.stopPropagation();
+                dropArea.classList.remove('dragover');
+            });
+        });
+        dropArea.addEventListener('drop', (e) => {
+            const files = e.dataTransfer.files;
+            if (files && files.length) {
+                addFiles(files);
+            } else {
+                const url = e.dataTransfer.getData('text/uri-list') || e.dataTransfer.getData('text/plain');
+                if (url && url.trim().startsWith('http')) {
+                    addUrl(url.trim());
+                }
+            }
+        });
+
+        // Keyboard shortcuts
+        document.addEventListener('keydown', (e) => {
+            if (e.target.tagName === 'INPUT') return;
+            if (e.code === 'Space') { e.preventDefault(); if (video.paused) video.play(); else video.pause(); }
+            if (e.code === 'ArrowRight' && e.metaKey) nextBtn.click();
+            if (e.code === 'ArrowLeft' && e.metaKey) prevBtn.click();
+            if (e.code === 'KeyF') fsBtn.click();
+        });
+
+        // Initial UI
+        updatePlaylistUI();
+
+        // Bonus: Support ?url= query param to auto-load
+        const params = new URLSearchParams(location.search);
+        if (params.get('url')) {
+            urlInput.value = params.get('url');
+            addUrl(params.get('url'));
+        }
+
+        console.log('%cInfusePlus Web Player ready — accepts mp4, mov, avi, mkv, webm, audio too', 'color:#ff4a2b; font-weight:bold;');
+    </script>
+</body>
+</html>
